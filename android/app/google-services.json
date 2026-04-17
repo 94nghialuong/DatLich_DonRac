@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "686701251370",
+    "project_id": "trashbookingapp",
+    "storage_bucket": "trashbookingapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:686701251370:android:8114f4775904e9b8c96c53",
+        "android_client_info": {
+          "package_name": "com.example.booking_don_rac"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDWuUNJrmlL8i77NwcZQpEPWRrsQILyXdM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:686701251370:android:901ccba4b338f4a6c96c53",
+        "android_client_info": {
+          "package_name": "huse.edu.vn"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDWuUNJrmlL8i77NwcZQpEPWRrsQILyXdM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
