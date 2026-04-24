@@ -5,8 +5,8 @@ class PaymentModel {
   final String bookingId;
   final double amount;
 
-  final String method;
-  final String status;
+  final String method; // CASH
+  final String status; // PENDING / PAID
 
   final Timestamp createdAt;
 

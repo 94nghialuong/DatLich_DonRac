@@ -1,6 +1,10 @@
 import 'package:booking_don_rac/config/firebase_options.dart';
 import 'package:booking_don_rac/provider/auth_provider.dart';
 import 'package:booking_don_rac/provider/booking_provider.dart';
+import 'package:booking_don_rac/provider/chat_provider.dart';
+import 'package:booking_don_rac/provider/employee_provider.dart';
+import 'package:booking_don_rac/provider/notification_provider.dart';
+import 'package:booking_don_rac/provider/tasks_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -23,6 +27,10 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => BookingProvider()),
+        ChangeNotifierProvider(create: (_) => EmployeeProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => TaskProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

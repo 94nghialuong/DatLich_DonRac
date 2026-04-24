@@ -3,26 +3,17 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // ================= LOGIN =================
   Future<UserCredential> login(String email, String password) async {
-    try {
-      final result = await _auth.signInWithEmailAndPassword(
-        email: email.trim(),
-        password: password.trim(),
-      );
-
-      print("LOGIN SUCCESS: ${result.user?.uid}");
-      return result;
-    } on FirebaseAuthException catch (e) {
-      print("LOGIN ERROR CODE: ${e.code}");
-      print("LOGIN ERROR MESSAGE: ${e.message}");
-      rethrow;
-    } catch (e) {
-      print("UNKNOWN ERROR: $e");
-      rethrow;
-    }
+    return await _auth.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: password.trim(),
+    );
   }
 
+  // ================= REGISTER =================
   Future<UserCredential> register({
     required String email,
     required String password,
@@ -38,13 +29,13 @@ class AuthService {
 
     final user = userCredential.user;
 
-    await FirebaseFirestore.instance.collection("users").doc(user!.uid).set({
+    await _firestore.collection("users").doc(user!.uid).set({
+      "uid": user.uid,
       "avatar": avatar ?? "",
-      "createdAt": Timestamp.now(),
+      "createdAt": FieldValue.serverTimestamp(),
       "dob": dob,
       "email": email,
       "fullname": fullname,
-      "passwordhash": password,
       "phone": phone,
       "role": "CUSTOMER",
       "status": true,
@@ -53,9 +44,39 @@ class AuthService {
     return userCredential;
   }
 
+  // ================= SAVE USER GOOGLE =================
+  Future<void> saveUserIfNotExists({
+    required String uid,
+    required String email,
+    required String fullname,
+    required String phone,
+    required String avatar,
+  }) async {
+    final doc = await _firestore.collection("users").doc(uid).get();
+
+    if (!doc.exists) {
+      await _firestore.collection("users").doc(uid).set({
+        "uid": uid,
+        "email": email,
+        "fullname": fullname,
+        "phone": phone,
+        "avatar": avatar,
+        "role": "CUSTOMER",
+        "status": true,
+        "createdAt": FieldValue.serverTimestamp(),
+      });
+
+      print("USER CREATED (GOOGLE)");
+    } else {
+      print("USER ALREADY EXISTS");
+    }
+  }
+
+  // ================= LOGOUT =================
   Future<void> logout() async {
     await _auth.signOut();
   }
 
+  // ================= CURRENT USER =================
   User? get currentUser => _auth.currentUser;
 }

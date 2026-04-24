@@ -1,26 +1,21 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class AdminHome extends StatelessWidget {
-  const AdminHome({super.key});
-
+class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser; // 🔥 FIX
+    final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Admin Home"), // 🔥 FIX
-      ),
+      appBar: AppBar(title: const Text("Profile")),
 
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("UID: ${user?.uid ?? "No user"}"),
-
-            const SizedBox(height: 20),
+            Text("UID: ${user?.uid}"),
+            const SizedBox(height: 10),
 
             ElevatedButton(
               onPressed: () async {

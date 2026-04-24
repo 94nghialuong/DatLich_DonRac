@@ -1,24 +1,63 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ChatService {
-  final CollectionReference chatRooms = FirebaseFirestore.instance.collection(
-    "chatroom",
-  );
+  final FirebaseFirestore db = FirebaseFirestore.instance;
 
-  Future<String> createChatRoom(Map<String, dynamic> data) async {
-    final doc = await chatRooms.add(data);
-    return doc.id;
+  /// =========================
+  /// 🔥 CREATE / GET ROOM
+  /// =========================
+  Future<String> getRoomId(
+    String bookingId,
+    String userId,
+    String staffId,
+  ) async {
+    // 🔥 FIX: sort để tránh lệch id
+    final members = [userId, staffId]..sort();
+    final roomId = "${bookingId}_${members[0]}_${members[1]}";
+
+    final ref = db.collection("chatroom").doc(roomId);
+    final doc = await ref.get();
+
+    if (!doc.exists) {
+      await ref.set({
+        "bookingId": bookingId,
+        "members": members,
+        "createdAt": FieldValue.serverTimestamp(),
+      });
+    }
+
+    return roomId;
   }
 
-  Stream<QuerySnapshot> getMessages(String chatRoomId) {
-    return chatRooms
-        .doc(chatRoomId)
+  /// =========================
+  /// 📤 SEND MESSAGE
+  /// =========================
+  Future<void> sendMessage({
+    required String roomId,
+    required String senderId,
+    required String senderName,
+    required String text,
+  }) async {
+    final roomRef = db.collection("chatroom").doc(roomId);
+
+    await roomRef.collection("messages").add({
+      "senderId": senderId,
+      "senderName": senderName,
+      "message": text,
+      "type": "text",
+      "createdAt": FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// =========================
+  /// 🔥 STREAM MESSAGE (REALTIME)
+  /// =========================
+  Stream<QuerySnapshot> getMessages(String roomId) {
+    return db
+        .collection("chatroom")
+        .doc(roomId)
         .collection("messages")
-        .orderBy("createdAt")
+        .orderBy("createdAt", descending: false) // 👈 CŨNG PHẢI TĂNG DẦN
         .snapshots();
-  }
-
-  Future<void> sendMessage(String chatRoomId, Map<String, dynamic> data) async {
-    await chatRooms.doc(chatRoomId).collection("messages").add(data);
   }
 }
