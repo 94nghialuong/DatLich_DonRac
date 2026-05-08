@@ -1,5 +1,5 @@
 import 'package:booking_don_rac/provider/employee_provider.dart';
-import 'package:booking_don_rac/screens/staff/staff_home_screen.dart';
+import 'package:booking_don_rac/screens/staff/main_staff_screen.dart';
 import 'package:booking_don_rac/screens/user/main_user_screen.dart';
 import 'package:booking_don_rac/services/employee_service.dart';
 import 'package:flutter/material.dart';

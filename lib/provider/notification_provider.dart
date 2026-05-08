@@ -1,63 +1,88 @@
-import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class NotificationProvider extends ChangeNotifier {
+  final FirebaseFirestore db = FirebaseFirestore.instance;
+
   List<DocumentSnapshot> notifications = [];
+
   int unreadCount = 0;
 
-  StreamSubscription? _sub;
-
+  // ================= REALTIME LISTENER =================
   void listenNotifications({required String userId, required String role}) {
-    _sub?.cancel();
+    role = role.toUpperCase();
+    Query query;
 
-    Query query = FirebaseFirestore.instance
-        .collection("notifications")
-        .orderBy("createdAt", descending: true);
-
-    // 👤 USER
-    if (role.toLowerCase() == "user") {
-      query = query
-          .where("target", isEqualTo: "USER")
-          .where("userId", isEqualTo: userId);
-    }
-    // 👷 STAFF
-    else if (role.toLowerCase() == "staff") {
-      query = query
-          .where("target", isEqualTo: "STAFF")
+    // ================= STAFF =================
+    if (role == "STAFF") {
+      query = db
+          .collection("notifications")
           .where("employeeId", isEqualTo: userId);
     }
+    // ================= USER =================
+    else {
+      query = db
+          .collection("notifications")
+          .where("userId", isEqualTo: userId)
+          .orderBy("createdAt", descending: true);
+    }
 
-    _sub = query.snapshots().listen((snapshot) {
+    query.snapshots().listen((snapshot) {
       notifications = snapshot.docs;
 
       unreadCount = snapshot.docs.where((doc) {
         final data = doc.data() as Map<String, dynamic>;
+
         return (data["isRead"] ?? false) == false;
       }).length;
+      // ================= DEBUG =================
+      for (var doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+      }
 
       notifyListeners();
     });
   }
 
-  Future<void> markAsRead(String id) async {
-    await FirebaseFirestore.instance.collection("notifications").doc(id).update(
-      {"isRead": true},
-    );
-  }
+  // ================= MARK AS READ =================
+  Future<void> markAsRead(String notificationId) async {
+    try {
+      await db.collection("notifications").doc(notificationId).update({
+        "isRead": true,
+      });
 
-  Future<void> markAllAsRead() async {
-    for (var doc in notifications) {
-      final data = doc.data() as Map<String, dynamic>;
-      if ((data["isRead"] ?? false) == false) {
-        await doc.reference.update({"isRead": true});
-      }
+      debugPrint("✅ MARK READ: $notificationId");
+    } catch (e) {
+      debugPrint("❌ MARK READ ERROR: $e");
     }
   }
 
-  @override
-  void dispose() {
-    _sub?.cancel();
-    super.dispose();
+  // ================= MARK ALL =================
+  Future<void> markAllAsRead() async {
+    try {
+      final unread = notifications.where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+
+        return (data["isRead"] ?? false) == false;
+      }).toList();
+
+      for (var doc in unread) {
+        await db.collection("notifications").doc(doc.id).update({
+          "isRead": true,
+        });
+      }
+
+      debugPrint("✅ MARK ALL AS READ");
+    } catch (e) {
+      debugPrint("❌ MARK ALL ERROR: $e");
+    }
+  }
+
+  // ================= CLEAR =================
+  void clear() {
+    notifications.clear();
+    unreadCount = 0;
+
+    notifyListeners();
   }
 }

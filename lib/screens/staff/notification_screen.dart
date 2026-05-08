@@ -1,40 +1,45 @@
 import 'package:booking_don_rac/provider/notification_provider.dart';
 import 'package:booking_don_rac/screens/staff/chat_screen.dart';
+import 'package:booking_don_rac/screens/staff/task_detail_screen.dart';
 import 'package:booking_don_rac/screens/user/booking_detail_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-class NotificationScreen extends StatefulWidget {
-  final String userId;
-  final String role;
-  final String userName;
+import '../../models/task_model.dart';
 
-  const NotificationScreen({
+class StaffNotificationScreen extends StatefulWidget {
+  final String employeeId;
+  final String employeeName;
+
+  const StaffNotificationScreen({
     super.key,
-    required this.userId,
-    required this.role,
-    required this.userName,
+    required this.employeeId,
+    required this.employeeName,
   });
 
   @override
-  State<NotificationScreen> createState() => _NotificationScreenState();
+  State<StaffNotificationScreen> createState() =>
+      _StaffNotificationScreenState();
 }
 
-class _NotificationScreenState extends State<NotificationScreen> {
+class _StaffNotificationScreenState extends State<StaffNotificationScreen> {
+  String employeeName = "";
+
   @override
   void initState() {
     super.initState();
+
+    employeeName = widget.employeeName;
 
     Future.microtask(() {
       Provider.of<NotificationProvider>(
         context,
         listen: false,
-      ).listenNotifications(userId: widget.userId, role: widget.role);
+      ).listenNotifications(userId: widget.employeeId, role: "STAFF");
     });
   }
 
-  // ================= FORMAT TIME =================
   String formatTime(Timestamp? time) {
     if (time == null) return "";
 
@@ -44,14 +49,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
         "${date.hour}:${date.minute.toString().padLeft(2, '0')}";
   }
 
-  // ================= ICON =================
   IconData getIcon(String type) {
     switch (type) {
+      case "chat":
+        return Icons.chat;
+
       case "booking_new":
         return Icons.assignment;
-
-      case "booking_created":
-        return Icons.check_circle;
 
       case "booking_accepted":
         return Icons.engineering;
@@ -59,22 +63,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
       case "booking_done":
         return Icons.done_all;
 
-      case "payment_success":
+      case "payment":
         return Icons.payments;
-
-      case "chat":
-        return Icons.chat;
-
-      case "review_reminder":
-        return Icons.star;
 
       default:
         return Icons.notifications;
     }
   }
 
-  // ================= ICON COLOR =================
-  Color getIconColor(bool isRead) {
+  Color getColor(bool isRead) {
     return isRead ? Colors.grey : Colors.green;
   }
 
@@ -86,19 +83,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
       backgroundColor: const Color(0xFFF5F6FA),
 
       appBar: AppBar(
-        title: Text(
-          widget.role.toUpperCase() == "STAFF"
-              ? "Thông báo công việc"
-              : "Thông báo",
-        ),
-
+        title: const Text("Thông báo công việc"),
         actions: [
-          TextButton(
-            onPressed: () async {
-              await provider.markAllAsRead();
-            },
-
-            child: const Text("Đọc hết", style: TextStyle(color: Colors.white)),
+          IconButton(
+            icon: const Icon(Icons.done_all),
+            onPressed: () => provider.markAllAsRead(),
           ),
         ],
       ),
@@ -107,29 +96,20 @@ class _NotificationScreenState extends State<NotificationScreen> {
           ? const Center(child: Text("Không có thông báo"))
           : ListView.builder(
               padding: const EdgeInsets.all(12),
-
               itemCount: provider.notifications.length,
-
               itemBuilder: (context, index) {
                 final doc = provider.notifications[index];
-
                 final data = doc.data() as Map<String, dynamic>;
 
                 final isRead = data["isRead"] ?? false;
-
-                final type = data["type"] ?? "";
-
+                final type = (data["type"] ?? "").toString();
                 final bookingId = data["bookingId"];
-
                 final roomId = data["roomId"];
 
                 return Card(
                   elevation: isRead ? 0 : 2,
-
                   color: isRead ? Colors.white : Colors.green.shade50,
-
-                  margin: const EdgeInsets.only(bottom: 12),
-
+                  margin: const EdgeInsets.only(bottom: 10),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -138,43 +118,55 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     borderRadius: BorderRadius.circular(14),
 
                     onTap: () async {
-                      // ================= READ =================
                       if (!isRead) {
                         await provider.markAsRead(doc.id);
                       }
 
                       // ================= CHAT =================
-                      if (type == "chat") {
-                        if (roomId != null && roomId.toString().isNotEmpty) {
-                          if (!mounted) return;
+                      if (type == "chat" && roomId != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChatScreen(
+                              roomId: roomId,
+                              myId: widget.employeeId,
+                              myName: employeeName,
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+
+                      // ================= BOOKING / TASK =================
+                      if (bookingId != null) {
+                        final taskSnap = await FirebaseFirestore.instance
+                            .collection("tasks")
+                            .where("bookingId", isEqualTo: bookingId)
+                            .where("employeeId", isEqualTo: widget.employeeId)
+                            .limit(1)
+                            .get();
+
+                        if (taskSnap.docs.isNotEmpty) {
+                          final task = TaskModel.fromDoc(
+                            taskSnap.docs.first.id,
+                            taskSnap.docs.first.data(),
+                          );
 
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => ChatScreen(
-                                roomId: roomId,
-                                myId: widget.userId,
-                                myName: widget.userName,
-                              ),
+                              builder: (_) => TaskDetail(task: task),
+                            ),
+                          );
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  BookingDetailScreen(bookingId: bookingId),
                             ),
                           );
                         }
-
-                        return;
-                      }
-
-                      // ================= BOOKING =================
-                      if (bookingId != null &&
-                          bookingId.toString().isNotEmpty) {
-                        if (!mounted) return;
-
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                BookingDetailScreen(bookingId: bookingId),
-                          ),
-                        );
                       }
                     },
 
@@ -182,80 +174,55 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       padding: const EdgeInsets.all(14),
 
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-
                         children: [
-                          // ================= ICON =================
                           Container(
                             padding: const EdgeInsets.all(10),
-
                             decoration: BoxDecoration(
                               color: isRead
                                   ? Colors.grey.shade200
                                   : Colors.green.shade100,
-
                               shape: BoxShape.circle,
                             ),
-
-                            child: Icon(
-                              getIcon(type),
-                              color: getIconColor(isRead),
-                            ),
+                            child: Icon(getIcon(type), color: getColor(isRead)),
                           ),
 
-                          const SizedBox(width: 14),
+                          const SizedBox(width: 12),
 
-                          // ================= CONTENT =================
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-
                               children: [
                                 Text(
                                   data["title"] ?? "",
-
                                   style: TextStyle(
-                                    fontSize: 15,
-
                                     fontWeight: isRead
                                         ? FontWeight.normal
                                         : FontWeight.bold,
                                   ),
                                 ),
 
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 5),
+
+                                Text(data["content"] ?? ""),
+
+                                const SizedBox(height: 5),
 
                                 Text(
-                                  data["content"] ?? "",
-
-                                  style: const TextStyle(fontSize: 14),
-                                ),
-
-                                const SizedBox(height: 8),
-
-                                if (data["createdAt"] != null)
-                                  Text(
-                                    formatTime(data["createdAt"]),
-
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
+                                  formatTime(data["createdAt"]),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
                                   ),
+                                ),
                               ],
                             ),
                           ),
 
-                          // ================= UNREAD DOT =================
                           if (!isRead)
-                            Container(
-                              width: 10,
-                              height: 10,
-
-                              decoration: const BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                              ),
+                            const Icon(
+                              Icons.circle,
+                              size: 10,
+                              color: Colors.green,
                             ),
                         ],
                       ),

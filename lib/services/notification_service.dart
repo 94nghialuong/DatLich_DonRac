@@ -1,21 +1,35 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class NotificationService {
-  final CollectionReference notifications = FirebaseFirestore.instance
-      .collection("notifications");
+  final db = FirebaseFirestore.instance;
 
-  Future<void> sendNotification(Map<String, dynamic> data) async {
-    await notifications.add(data);
-  }
+  Future<void> create({
+    required String title,
+    required String content,
+    required String type,
+    required String target,
 
-  Stream<QuerySnapshot> getUserNotifications(String userId) {
-    return notifications
-        .where("userId", isEqualTo: userId)
-        .orderBy("createdAt", descending: true)
-        .snapshots();
-  }
+    String? userId,
+    String? employeeId,
+    String? bookingId,
+    String? roomId,
+  }) async {
+    await db.collection("notifications").add({
+      "title": title,
+      "content": content,
+      "type": type,
 
-  Future<void> markAsRead(String id) async {
-    await notifications.doc(id).update({"isRead": true});
+      "target": target,
+
+      "userId": userId,
+      "employeeId": employeeId,
+
+      "bookingId": bookingId,
+      "roomId": roomId,
+
+      "isRead": false,
+
+      "createdAt": Timestamp.now(),
+    });
   }
 }

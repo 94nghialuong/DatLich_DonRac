@@ -40,6 +40,7 @@ class ChatService {
   }) async {
     final roomRef = db.collection("chatroom").doc(roomId);
 
+    // ================= SAVE MESSAGE =================
     await roomRef.collection("messages").add({
       "senderId": senderId,
       "senderName": senderName,
@@ -47,6 +48,37 @@ class ChatService {
       "type": "text",
       "createdAt": FieldValue.serverTimestamp(),
     });
+
+    // ================= GET ROOM =================
+    final roomDoc = await roomRef.get();
+
+    if (!roomDoc.exists) return;
+
+    final data = roomDoc.data()!;
+
+    final members = List<String>.from(data["members"] ?? []);
+
+    // ================= SEND NOTIFICATION =================
+    for (var memberId in members) {
+      if (memberId == senderId) continue;
+
+      final userDoc = await db.collection("users").doc(memberId).get();
+
+      if (!userDoc.exists) continue;
+
+      final role = userDoc.data()?["role"] ?? "user";
+
+      await db.collection("notifications").add({
+        "receiverId": memberId,
+        "role": role.toUpperCase(),
+        "type": "chat",
+        "title": senderName,
+        "content": text,
+        "roomId": roomId,
+        "isRead": false,
+        "createdAt": Timestamp.now(),
+      });
+    }
   }
 
   /// =========================

@@ -4,7 +4,6 @@ import 'package:booking_don_rac/screens/staff/booking_history_screen.dart';
 import 'package:booking_don_rac/screens/staff/bookings_list_screens.dart';
 import 'package:booking_don_rac/screens/staff/profile_screen.dart';
 import 'package:booking_don_rac/screens/staff/tasks_screen.dart';
-import 'package:booking_don_rac/screens/user/notification_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -26,11 +25,11 @@ class _StaffHomeState extends State<StaffHome> {
   void initState() {
     super.initState();
 
-    // init screens (tránh rebuild nhiều lần)
+    // ✅ FIX: truyền employeeId vào BookingList
     screens = [
-      BookingList(),
-      TaskScreen(),
-      BookingHistoryScreen(),
+      BookingList(employeeId: widget.employeeId),
+      const TaskScreen(),
+      const BookingHistoryScreen(),
       ProfileScreen(),
     ];
 
@@ -39,76 +38,27 @@ class _StaffHomeState extends State<StaffHome> {
       context.read<TaskProvider>().listenTasks(widget.employeeId);
     });
 
-    // 🔥 NOTIFICATION LISTENER (STAFF)
+    // 🔥 NOTIFICATION LISTENER
     Future.microtask(() {
       context.read<NotificationProvider>().listenNotifications(
         userId: widget.employeeId,
-        role: "staff", // 🔥 dùng lowercase cho chắc
+        role: "staff",
       );
     });
   }
 
   @override
+  void dispose() {
+    // ✅ OPTIONAL: nếu provider có stop listener thì gọi
+    // context.read<TaskProvider>().disposeListener();
+    // context.read<NotificationProvider>().disposeListener();
+
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ================= APPBAR =================
-      appBar: AppBar(
-        title: const Text("Staff Dashboard"),
-
-        actions: [
-          Consumer<NotificationProvider>(
-            builder: (context, notiProvider, _) {
-              final unread = notiProvider.unreadCount;
-
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => NotificationScreen(
-                            userId: widget.employeeId,
-                            role: "staff", // 🔥 đồng bộ luôn
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  // 🔴 BADGE
-                  if (unread > 0)
-                    Positioned(
-                      right: 6,
-                      top: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          unread > 99 ? "99+" : "$unread",
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-
       // ================= BODY =================
       body: IndexedStack(index: index, children: screens),
 
