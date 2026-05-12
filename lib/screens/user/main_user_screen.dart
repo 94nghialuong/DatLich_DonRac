@@ -1,4 +1,6 @@
+import 'package:booking_don_rac/screens/user/tracking_list_screen.dart';
 import 'package:flutter/material.dart';
+
 import 'home_screen.dart';
 import 'my_booking_screen.dart';
 import 'profile_screen.dart';
@@ -13,105 +15,72 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int currentIndex = 0;
 
-  // ⚠️ KHÔNG dùng const để tránh lỗi rebuild + null issues
   late final List<Widget> screens = [
     const HomeScreen(),
     const MyBookingScreen(),
-    const Placeholder(), // Tracking (tạm)
+    const TrackingListScreen(),
     const ProfileScreen(),
   ];
 
   void onTap(int index) {
     if (index < 0 || index >= screens.length) return;
-    setState(() => currentIndex = index);
+
+    setState(() {
+      currentIndex = index;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBody: true,
-
-      // ❌ FIX: tránh padding ảo + khoảng trắng bottom
       resizeToAvoidBottomInset: false,
 
       body: IndexedStack(index: currentIndex, children: screens),
 
-      // ================= BOTTOM NAV FIXED =================
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.92),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(24),
-              topRight: Radius.circular(24),
-            ),
+            color: Colors.white,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.08),
-                blurRadius: 18,
+                blurRadius: 16,
                 offset: const Offset(0, -4),
               ),
             ],
-            border: Border(
-              top: BorderSide(color: const Color(0xFF1E8449).withOpacity(0.1)),
-            ),
           ),
-
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _bottomItem(Icons.home, "Home", 0),
-              _bottomItem(Icons.add_circle, "Booking", 1),
-              _bottomItem(Icons.location_on, "Tracking", 2),
-              _bottomItem(Icons.person, "Profile", 3),
+          child: NavigationBar(
+            height: 72,
+            selectedIndex: currentIndex,
+            onDestinationSelected: onTap,
+            backgroundColor: Colors.white,
+            elevation: 0,
+            indicatorColor: const Color(0xFF1E8449).withOpacity(0.12),
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: "Home",
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.receipt_long_outlined),
+                selectedIcon: Icon(Icons.receipt_long),
+                label: "Booking",
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.location_on_outlined),
+                selectedIcon: Icon(Icons.location_on),
+                label: "Tracking",
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline),
+                selectedIcon: Icon(Icons.person),
+                label: "Profile",
+              ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  // ================= BOTTOM ITEM =================
-  Widget _bottomItem(IconData icon, String label, int index) {
-    final isActive = currentIndex == index;
-
-    return GestureDetector(
-      onTap: () => onTap(index),
-
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-
-        transform: Matrix4.identity()..scale(isActive ? 1.08 : 1.0),
-
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: isActive ? 28 : 24,
-              color: isActive
-                  ? const Color(0xFF1E8449)
-                  : const Color(0xFF7F8C8D),
-            ),
-
-            const SizedBox(height: 3),
-
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: isActive
-                    ? const Color(0xFF1E8449)
-                    : const Color(0xFF7F8C8D),
-              ),
-            ),
-          ],
         ),
       ),
     );

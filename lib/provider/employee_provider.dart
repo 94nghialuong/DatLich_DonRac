@@ -1,15 +1,17 @@
-import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:booking_don_rac/services/notification_service.dart';
+import 'package:booking_don_rac/services/tracking_service.dart';
 import 'package:booking_don_rac/services/upload_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 
 class EmployeeProvider extends ChangeNotifier {
   final FirebaseFirestore db = FirebaseFirestore.instance;
   final UploadService uploadService = UploadService();
+  final TrackingService trackingService = TrackingService();
+  final NotificationService notificationService = NotificationService();
 
   String userId = "";
   String role = "";
@@ -22,9 +24,8 @@ class EmployeeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool get isStaff => role == "STAFF";
+  bool get isStaff => role.toUpperCase() == "STAFF";
 
-  // ================= BOOKINGS =================
   Stream<QuerySnapshot> get bookings {
     if (!isStaff || userId.isEmpty) return const Stream.empty();
 
@@ -34,7 +35,6 @@ class EmployeeProvider extends ChangeNotifier {
         .snapshots();
   }
 
-  // ================= TASKS =================
   Stream<QuerySnapshot> get tasks {
     if (!isStaff || userId.isEmpty) return const Stream.empty();
 
@@ -45,7 +45,6 @@ class EmployeeProvider extends ChangeNotifier {
         .snapshots();
   }
 
-  // ================= HISTORY =================
   Stream<QuerySnapshot> get history {
     if (!isStaff || userId.isEmpty) return const Stream.empty();
 
@@ -55,9 +54,10 @@ class EmployeeProvider extends ChangeNotifier {
         .snapshots();
   }
 
-  // ================= ACCEPT BOOKING =================
   Future<void> acceptBooking(String bookingId) async {
     final bookingRef = db.collection('bookings').doc(bookingId);
+
+    String? customerId;
 
     await db.runTransaction((tx) async {
       final bookingDoc = await tx.get(bookingRef);
@@ -65,11 +65,11 @@ class EmployeeProvider extends ChangeNotifier {
 
       final data = bookingDoc.data()!;
       final oldStatus = data["status"];
-      final customerId = data["userId"];
+      customerId = data["userId"];
 
-      final taskRef = db.collection('tasks').doc();
+      final taskRef = db.collection('tasks').doc(bookingId);
+      final trackingRef = db.collection('tracking').doc(bookingId);
 
-      // 🔥 CREATE TASK
       tx.set(taskRef, {
         "bookingId": bookingId,
         "employeeId": userId,
@@ -78,13 +78,31 @@ class EmployeeProvider extends ChangeNotifier {
         "endTime": null,
         "beforeImage": "",
         "afterImage": "",
-        "currentLocation": const GeoPoint(0, 0),
+        "currentLocation": null,
+        "createdAt": Timestamp.now(),
+        "updatedAt": Timestamp.now(),
       });
 
-      // 🔥 UPDATE BOOKING
-      tx.update(bookingRef, {"status": "ACCEPTED", "employeeId": userId});
+      tx.update(bookingRef, {
+        "status": "ACCEPTED",
+        "employeeId": userId,
+        "trackingStatus": "READY",
+        "updatedAt": Timestamp.now(),
+      });
 
-      // 🔥 HISTORY
+      tx.set(trackingRef, {
+        "bookingId": bookingId,
+        "employeeId": userId,
+        "location": null,
+        "lat": null,
+        "lng": null,
+        "speed": null,
+        "heading": null,
+        "accuracy": null,
+        "isTracking": false,
+        "updatedAt": Timestamp.now(),
+      }, SetOptions(merge: true));
+
       tx.set(db.collection("bookinghistory").doc(), {
         "bookingId": bookingId,
         "employeeId": userId,
@@ -93,31 +111,56 @@ class EmployeeProvider extends ChangeNotifier {
         "changedBy": userId,
         "createdAt": Timestamp.now(),
       });
-
-      // 🔔 NOTIFICATION (QUAN TRỌNG)
-      tx.set(db.collection("notifications").doc(), {
-        "title": "Đơn đã được nhận",
-        "content": "Nhân viên đã nhận đơn của bạn",
-        "userId": customerId,
-        "bookingId": bookingId,
-        "type": "booking",
-        "isRead": false,
-        "createdAt": Timestamp.now(),
-      });
     });
+
+    await notificationService.notifyStaff(
+      employeeId: userId,
+      title: "Bạn đã nhận đơn mới",
+      content: "Đơn $bookingId đã được giao cho bạn",
+      type: "booking_assigned",
+      bookingId: bookingId,
+      taskId: bookingId,
+    );
+
+    await notificationService.notifyStaffTaskStatus(
+      employeeId: userId,
+      bookingId: bookingId,
+      taskId: bookingId,
+      status: "ASSIGNED",
+    );
+
+    if (customerId != null) {
+      await notificationService.notifyUserBookingStatus(
+        userId: customerId!,
+        bookingId: bookingId,
+        status: "ACCEPTED",
+      );
+    }
   }
 
-  // ================= START TASK =================
   Future<void> startTask(String taskId, String bookingId) async {
     final bookingRef = db.collection('bookings').doc(bookingId);
 
+    String? customerId;
+
     await db.runTransaction((tx) async {
-      final doc = await tx.get(bookingRef);
-      final oldStatus = doc["status"];
+      final bookingDoc = await tx.get(bookingRef);
+      if (!bookingDoc.exists) return;
+
+      final data = bookingDoc.data()!;
+      final oldStatus = data["status"];
+      customerId = data["userId"];
 
       tx.update(db.collection('tasks').doc(taskId), {
         "status": "IN_PROGRESS",
         "startTime": Timestamp.now(),
+        "updatedAt": Timestamp.now(),
+      });
+
+      tx.update(bookingRef, {
+        "status": "IN_PROGRESS",
+        "trackingStatus": "LIVE",
+        "updatedAt": Timestamp.now(),
       });
 
       tx.set(db.collection("bookinghistory").doc(), {
@@ -130,19 +173,36 @@ class EmployeeProvider extends ChangeNotifier {
       });
     });
 
-    await startTracking(taskId);
+    await trackingService.startRealtimeTracking(
+      bookingId: bookingId,
+      employeeId: userId,
+    );
+
+    await notificationService.notifyStaffTaskStatus(
+      employeeId: userId,
+      bookingId: bookingId,
+      taskId: taskId,
+      status: "IN_PROGRESS",
+    );
+
+    if (customerId != null) {
+      await notificationService.notifyUserBookingStatus(
+        userId: customerId!,
+        bookingId: bookingId,
+        status: "IN_PROGRESS",
+      );
+    }
   }
 
-  // ================= COMPLETE TASK (SAFE + FIX UPLOAD) =================
   Future<void> completeTaskWithImage(
     String taskId,
     String bookingId,
     File? file,
   ) async {
     String imageUrl = "";
+    String? customerId;
 
     try {
-      // upload ảnh
       if (file != null) {
         Uint8List bytes = await file.readAsBytes();
         imageUrl = await uploadService.uploadImage(
@@ -158,19 +218,21 @@ class EmployeeProvider extends ChangeNotifier {
 
         final data = bookingDoc.data()!;
         final oldStatus = data["status"];
-        final customerId = data["userId"];
+        customerId = data["userId"];
 
-        // update task
         tx.update(db.collection("tasks").doc(taskId), {
           "status": "COMPLETED",
           "endTime": Timestamp.now(),
           "afterImage": imageUrl,
+          "updatedAt": Timestamp.now(),
         });
 
-        // update booking
-        tx.update(bookingRef, {"status": "DONE"});
+        tx.update(bookingRef, {
+          "status": "DONE",
+          "trackingStatus": "STOPPED",
+          "updatedAt": Timestamp.now(),
+        });
 
-        // history
         tx.set(db.collection("bookinghistory").doc(), {
           "bookingId": bookingId,
           "employeeId": userId,
@@ -179,18 +241,24 @@ class EmployeeProvider extends ChangeNotifier {
           "changedBy": userId,
           "createdAt": Timestamp.now(),
         });
-
-        // 🔔 NOTIFICATION DONE
-        tx.set(db.collection("notifications").doc(), {
-          "title": "Đơn đã hoàn thành",
-          "content": "Đơn của bạn đã hoàn tất",
-          "userId": customerId,
-          "bookingId": bookingId,
-          "type": "booking",
-          "isRead": false,
-          "createdAt": Timestamp.now(),
-        });
       });
+
+      await trackingService.stopRealtimeTracking(bookingId: bookingId);
+
+      await notificationService.notifyStaffTaskStatus(
+        employeeId: userId,
+        bookingId: bookingId,
+        taskId: taskId,
+        status: "COMPLETED",
+      );
+
+      if (customerId != null) {
+        await notificationService.notifyUserBookingStatus(
+          userId: customerId!,
+          bookingId: bookingId,
+          status: "DONE",
+        );
+      }
 
       print("✅ COMPLETE SUCCESS");
     } catch (e) {
@@ -199,7 +267,6 @@ class EmployeeProvider extends ChangeNotifier {
     }
   }
 
-  // ================= BEFORE IMAGE =================
   Future<void> uploadBeforeImage(String taskId, File file) async {
     Uint8List bytes = await file.readAsBytes();
 
@@ -211,30 +278,9 @@ class EmployeeProvider extends ChangeNotifier {
     await db.collection("tasks").doc(taskId).update({"beforeImage": url});
   }
 
-  // ================= TRACKING =================
-  StreamSubscription<Position>? _trackingSub;
-
-  Future<void> startTracking(String taskId) async {
-    await Geolocator.requestPermission();
-
-    _trackingSub =
-        Geolocator.getPositionStream(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 10,
-          ),
-        ).listen((pos) async {
-          await db.collection("tracking").doc(taskId).set({
-            "taskId": taskId,
-            "employeeId": userId,
-            "location": GeoPoint(pos.latitude, pos.longitude),
-            "updatedAt": Timestamp.now(),
-          });
-        });
-  }
-
-  Future<void> stopTracking() async {
-    await _trackingSub?.cancel();
-    _trackingSub = null;
+  @override
+  void dispose() {
+    trackingService.dispose();
+    super.dispose();
   }
 }

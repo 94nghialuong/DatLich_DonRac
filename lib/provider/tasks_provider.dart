@@ -6,7 +6,7 @@ class TaskProvider extends ChangeNotifier {
   int taskCount = 0;
   bool _initialized = false;
 
-  StreamSubscription? _sub;
+  StreamSubscription<QuerySnapshot>? _sub;
 
   void listenTasks(String employeeId) {
     _sub?.cancel();
@@ -14,10 +14,10 @@ class TaskProvider extends ChangeNotifier {
     _sub = FirebaseFirestore.instance
         .collection("tasks")
         .where("employeeId", isEqualTo: employeeId)
+        .where("status", whereIn: ["ASSIGNED", "IN_PROGRESS"])
         .snapshots()
         .listen(
           (snapshot) {
-            // 🔥 tránh flicker khi chưa init
             taskCount = snapshot.docs.length;
             _initialized = true;
             notifyListeners();
@@ -29,6 +29,14 @@ class TaskProvider extends ChangeNotifier {
   }
 
   bool get isReady => _initialized;
+
+  void clear() {
+    _sub?.cancel();
+    _sub = null;
+    taskCount = 0;
+    _initialized = false;
+    notifyListeners();
+  }
 
   @override
   void dispose() {

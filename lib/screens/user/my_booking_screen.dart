@@ -212,7 +212,7 @@ class MyBookingScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           // PAYMENT BUTTON
-                          if (status == "DONE")
+                          if (status == "COMPLETED")
                             ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF2ECC71),
@@ -224,7 +224,11 @@ class MyBookingScreen extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(30),
                                 ),
                               ),
-                              icon: const Icon(Icons.payment, size: 18),
+                              icon: const Icon(
+                                Icons.payment,
+                                size: 18,
+                                color: Colors.white,
+                              ),
                               onPressed: () {
                                 Navigator.push(
                                   context,
@@ -234,7 +238,10 @@ class MyBookingScreen extends StatelessWidget {
                                   ),
                                 );
                               },
-                              label: const Text("Thanh toán"),
+                              label: const Text(
+                                "Thanh toán",
+                                style: TextStyle(color: Colors.white),
+                              ),
                             )
                           else
                             const SizedBox(),

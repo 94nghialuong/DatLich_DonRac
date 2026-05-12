@@ -6,8 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
-
-import '../admin/home_creen.dart';
+import 'package:booking_don_rac/screens/admin/admin_home_screen.dart';
 import 'login.dart';
 
 class AuthWrapper extends StatelessWidget {

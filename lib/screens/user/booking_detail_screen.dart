@@ -1,4 +1,5 @@
 import 'package:booking_don_rac/screens/staff/chat_screen.dart';
+import 'package:booking_don_rac/screens/user/paymen_screen.dart';
 import 'package:booking_don_rac/screens/user/reviews_screen.dart';
 import 'package:booking_don_rac/screens/user/tracking_screen.dart';
 import 'package:booking_don_rac/services/chat_service.dart';
@@ -236,6 +237,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
               decoration: cardBox(),
               child: Column(
                 children: [
+                  // ===== TRACKING =====
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -263,6 +265,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
 
                   const SizedBox(height: 10),
 
+                  // ===== CHAT =====
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -290,6 +293,35 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                       label: const Text("Chat"),
                     ),
                   ),
+
+                  // ===== PAYMENT =====
+                  if (status == "COMPLETED") ...[
+                    const SizedBox(height: 10),
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        icon: const Icon(Icons.payment, color: Colors.white),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  PaymentScreen(bookingId: widget.bookingId),
+                            ),
+                          );
+                        },
+                        label: const Text(
+                          "Thanh toán",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -318,6 +350,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                         ),
                         icon: const Icon(Icons.star),
                         onPressed: () async {
+                          if (staffId == null) return;
+
                           await Navigator.push(
                             context,
                             MaterialPageRoute(

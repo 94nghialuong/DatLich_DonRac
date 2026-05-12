@@ -1,14 +1,13 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class PaymentModel {
   final String id;
   final String bookingId;
   final double amount;
+  final String method;
+  final String status;
 
-  final String method; // CASH
-  final String status; // PENDING / PAID
-
-  final Timestamp createdAt;
+  // NEW
+  final String? paymentUrl;
+  final String? qrContent;
 
   PaymentModel({
     required this.id,
@@ -16,7 +15,10 @@ class PaymentModel {
     required this.amount,
     required this.method,
     required this.status,
-    required this.createdAt,
+
+    // NEW
+    this.paymentUrl,
+    this.qrContent,
   });
 
   factory PaymentModel.fromDoc(String id, Map<String, dynamic> data) {
@@ -24,9 +26,12 @@ class PaymentModel {
       id: id,
       bookingId: data["bookingId"] ?? "",
       amount: (data["amount"] ?? 0).toDouble(),
-      method: data["method"] ?? "CASH",
+      method: data["method"] ?? "",
       status: data["status"] ?? "PENDING",
-      createdAt: data["createdAt"] ?? Timestamp.now(),
+
+      // NEW
+      paymentUrl: data["paymentUrl"],
+      qrContent: data["qrContent"],
     );
   }
 
@@ -36,7 +41,10 @@ class PaymentModel {
       "amount": amount,
       "method": method,
       "status": status,
-      "createdAt": createdAt,
+
+      // NEW
+      "paymentUrl": paymentUrl,
+      "qrContent": qrContent,
     };
   }
 }

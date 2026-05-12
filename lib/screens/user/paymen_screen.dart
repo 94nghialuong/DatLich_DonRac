@@ -1,3 +1,4 @@
+import 'package:booking_don_rac/models/payment_model.dart';
 import 'package:booking_don_rac/services/payment_service.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -7,14 +8,45 @@ class PaymentScreen extends StatelessWidget {
 
   PaymentScreen({super.key, required this.bookingId});
 
-  final service = PaymentService();
+  final PaymentService service = PaymentService();
+
+  Color getMethodColor(String method) {
+    switch (method) {
+      case "MOMO":
+        return const Color(0xFFD82D8B);
+      case "ZALOPAY":
+        return const Color(0xFF0068FF);
+      default:
+        return Colors.green;
+    }
+  }
+
+  String getMethodLogo(String method) {
+    switch (method) {
+      case "MOMO":
+        return "assets/images/momo.png";
+      case "ZALOPAY":
+        return "assets/images/zalopay.png";
+      default:
+        return "";
+    }
+  }
+
+  String formatMoney(double amount) {
+    return "${amount.toStringAsFixed(0)} đ";
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Thanh toán QR")),
-
-      body: StreamBuilder(
+      backgroundColor: const Color(0xFFFDF6FD),
+      appBar: AppBar(
+        title: const Text("Thanh toán QR"),
+        backgroundColor: const Color(0xFFFDF6FD),
+        elevation: 0,
+        foregroundColor: Colors.black87,
+      ),
+      body: StreamBuilder<List<PaymentModel>>(
         stream: service.getByBooking(bookingId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -29,127 +61,202 @@ class PaymentScreen extends StatelessWidget {
 
           if (payments.isEmpty) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text("Chưa có thanh toán"),
-                  const SizedBox(height: 10),
+              child: ElevatedButton(
+                onPressed: () async {
+                  await service.createFromBooking(
+                    bookingId: bookingId,
+                    method: "MOMO",
+                  );
 
-                  ElevatedButton(
-                    onPressed: () async {
-                      await service.createFromBooking(bookingId);
+                  if (!context.mounted) return;
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Đã tạo payment")),
-                      );
-                    },
-                    child: const Text("Tạo payment"),
-                  ),
-                ],
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Đã tạo payment")),
+                  );
+                },
+                child: const Text("Tạo thanh toán"),
               ),
             );
           }
 
           final payment = payments.first;
+          final color = getMethodColor(payment.method);
 
-          // 🔥 QR DATA (có thể đổi format theo MoMo/ZaloPay sau)
           final qrData =
+              payment.qrContent ??
               "BOOKING:$bookingId|AMOUNT:${payment.amount}|PAYMENT:${payment.id}";
 
+          final isPaid = payment.status == "PAID";
+
           return SingleChildScrollView(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 20),
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              children: [
+                const SizedBox(height: 10),
 
-                    Text(
-                      "Số tiền cần thanh toán",
-                      style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-                    ),
-
-                    Text(
-                      "${payment.amount} đ",
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
                       ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // ================= QR CODE =================
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.green),
-                        borderRadius: BorderRadius.circular(12),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 34,
+                        backgroundColor: color.withOpacity(0.12),
+                        child: Icon(
+                          Icons.account_balance_wallet,
+                          color: color,
+                          size: 36,
+                        ),
                       ),
-                      child: QrImageView(
-                        data: qrData,
-                        version: QrVersions.auto,
-                        size: 220,
+
+                      const SizedBox(height: 12),
+
+                      Text(
+                        "Thanh toán qua ${payment.method}",
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
 
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 8),
 
-                    Text(
-                      "Trạng thái: ${payment.status}",
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: payment.status == "PAID"
-                            ? Colors.green
-                            : Colors.red,
-                        fontWeight: FontWeight.bold,
+                      Text(
+                        formatMoney(payment.amount),
+                        style: TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                        ),
                       ),
-                    ),
 
-                    const SizedBox(height: 30),
+                      const SizedBox(height: 20),
 
-                    if (payment.status != "PAID")
-                      Column(
-                        children: [
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 30,
-                                vertical: 12,
-                              ),
-                            ),
-                            icon: const Icon(Icons.qr_code),
-                            onPressed: () async {
-                              await service.pay(payment.id, bookingId);
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: color, width: 1.5),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: QrImageView(
+                          data: qrData,
+                          version: QrVersions.auto,
+                          size: 230,
+                        ),
+                      ),
 
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Thanh toán thành công"),
-                                ),
-                              );
-                            },
-                            label: const Text("Xác nhận đã thanh toán"),
+                      const SizedBox(height: 18),
+
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 9,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isPaid
+                              ? Colors.green.withOpacity(0.12)
+                              : Colors.orange.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: Text(
+                          isPaid ? "Đã thanh toán" : "Đang chờ thanh toán",
+                          style: TextStyle(
+                            color: isPaid ? Colors.green : Colors.orange,
+                            fontWeight: FontWeight.bold,
                           ),
-
-                          const SizedBox(height: 10),
-
-                          const Text(
-                            "Quét QR để thanh toán (demo)",
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ],
-                      )
-                    else
-                      const Icon(
-                        Icons.check_circle,
-                        color: Colors.green,
-                        size: 80,
+                        ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+
+                const SizedBox(height: 18),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Hướng dẫn thanh toán",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      Text("1. Mở ứng dụng ví điện tử hoặc ngân hàng."),
+                      Text("2. Chọn quét mã QR."),
+                      Text("3. Kiểm tra số tiền và xác nhận."),
+                      Text("4. Bấm xác nhận đã thanh toán trong app."),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 22),
+
+                if (!isPaid)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: color,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                      ),
+                      icon: const Icon(Icons.check_circle_outline),
+                      onPressed: () async {
+                        await service.pay(payment.id, bookingId);
+
+                        if (!context.mounted) return;
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Thanh toán thành công"),
+                          ),
+                        );
+                      },
+                      label: const Text(
+                        "Xác nhận đã thanh toán",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Column(
+                    children: [
+                      Icon(Icons.verified, color: Colors.green, size: 76),
+                      const SizedBox(height: 8),
+                      const Text(
+                        "Cảm ơn bạn đã thanh toán",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+              ],
             ),
           );
         },

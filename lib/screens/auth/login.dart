@@ -3,6 +3,7 @@ import 'package:booking_don_rac/screens/auth/forgot_screen.dart';
 import 'package:booking_don_rac/screens/auth/signup_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,12 +17,58 @@ class _LoginScreenState extends State<LoginScreen> {
   final passwordController = TextEditingController();
 
   bool rememberMe = false;
+  bool hidePassword = true;
 
-  // ✅ ERROR TEXT
   String? emailError;
   String? passwordError;
 
-  // ===== VALIDATE + LOGIN =====
+  @override
+  void initState() {
+    super.initState();
+    loadRemember();
+  }
+
+  Future<void> loadRemember() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final savedRemember = prefs.getBool("rememberMe") ?? false;
+    final savedEmail = prefs.getString("rememberEmail") ?? "";
+    final savedPassword = prefs.getString("rememberPassword") ?? "";
+
+    if (!mounted) return;
+
+    setState(() {
+      rememberMe = savedRemember;
+
+      if (rememberMe) {
+        emailController.text = savedEmail;
+        passwordController.text = savedPassword;
+      }
+    });
+  }
+
+  Future<void> saveRemember() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    if (rememberMe) {
+      await prefs.setBool("rememberMe", true);
+      await prefs.setString("rememberEmail", emailController.text.trim());
+      await prefs.setString("rememberPassword", passwordController.text.trim());
+    } else {
+      await prefs.setBool("rememberMe", false);
+      await prefs.remove("rememberEmail");
+      await prefs.remove("rememberPassword");
+    }
+  }
+
+  Future<void> clearRemember() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setBool("rememberMe", false);
+    await prefs.remove("rememberEmail");
+    await prefs.remove("rememberPassword");
+  }
+
   Future<void> handleLogin(AuthProvider auth) async {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
@@ -53,7 +100,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!isValid) return;
 
+    await saveRemember();
+
+    if (!mounted) return;
+
     await auth.login(email, password);
+  }
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -68,7 +126,6 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                // 🌱 LOGO
                 Column(
                   children: const [
                     CircleAvatar(
@@ -99,7 +156,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 30),
 
-                // 📦 CARD
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -124,9 +180,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 20),
 
-                      // ✅ EMAIL
                       TextField(
                         controller: emailController,
+                        keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
                           hintText: "Email",
                           errorText: emailError,
@@ -141,15 +197,26 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 15),
 
-                      // ✅ PASSWORD
                       TextField(
                         controller: passwordController,
-                        obscureText: true,
+                        obscureText: hidePassword,
                         decoration: InputDecoration(
                           hintText: "Password",
                           errorText: passwordError,
                           filled: true,
                           fillColor: Colors.grey[100],
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              hidePassword
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                hidePassword = !hidePassword;
+                              });
+                            },
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(30),
                             borderSide: BorderSide.none,
@@ -159,7 +226,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 10),
 
-                      // REMEMBER + FORGOT
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -167,8 +233,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             children: [
                               Checkbox(
                                 value: rememberMe,
-                                onChanged: (v) {
-                                  setState(() => rememberMe = v ?? false);
+                                activeColor: const Color(0xff006d37),
+                                onChanged: (v) async {
+                                  setState(() {
+                                    rememberMe = v ?? false;
+                                  });
+
+                                  if (!rememberMe) {
+                                    await clearRemember();
+                                  }
                                 },
                               ),
                               const Text("Remember me"),
@@ -193,8 +266,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 10),
 
-                      // LOGIN BUTTON
-                      (auth.isLoading ?? false)
+                      auth.isLoading
                           ? const CircularProgressIndicator()
                           : SizedBox(
                               width: double.infinity,
@@ -231,16 +303,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 15),
 
-                      // GOOGLE LOGIN
                       SizedBox(
                         width: double.infinity,
                         height: 56,
                         child: OutlinedButton.icon(
-                          onPressed: () async {
-                            await context
-                                .read<AuthProvider>()
-                                .signInWithGoogle();
-                          },
+                          onPressed: auth.isLoading
+                              ? null
+                              : () async {
+                                  await context
+                                      .read<AuthProvider>()
+                                      .signInWithGoogle();
+                                },
                           icon: Image.network(
                             "https://cdn-icons-png.flaticon.com/512/281/281764.png",
                             height: 22,
@@ -267,7 +340,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 20),
 
-                // SIGN UP
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
