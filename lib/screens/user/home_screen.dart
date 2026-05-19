@@ -64,7 +64,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-
         actions: [
           Consumer<NotificationProvider>(
             builder: (context, noti, _) {
@@ -119,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // ================= BODY =================
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -127,6 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
               "Dịch vụ dọn rác",
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 4),
             const Text(
               "Hãy giữ môi trường xanh sạch đẹp",
               style: TextStyle(color: Colors.grey),
@@ -136,6 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // SEARCH
             Container(
+              height: 52,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(30),
@@ -146,6 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   hintText: "Tìm kiếm dịch vụ...",
                   prefixIcon: Icon(Icons.search),
                   border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 15),
                 ),
               ),
             ),
@@ -163,18 +165,28 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   final docs = snapshot.data!.docs.where((doc) {
                     final data = doc.data() as Map<String, dynamic>;
-                    final name = data["name"].toString().toLowerCase();
+                    final name = (data["name"] ?? "").toString().toLowerCase();
                     return name.contains(searchText.toLowerCase());
                   }).toList();
 
+                  if (docs.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        "Không tìm thấy dịch vụ",
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    );
+                  }
+
                   return GridView.builder(
+                    padding: const EdgeInsets.only(bottom: 16),
                     itemCount: docs.length,
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
                           mainAxisSpacing: 12,
                           crossAxisSpacing: 12,
-                          childAspectRatio: 0.72,
+                          mainAxisExtent: 285,
                         ),
                     itemBuilder: (context, i) {
                       final data = docs[i].data() as Map<String, dynamic>;
@@ -202,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           );
                         },
 
-                        // ================= UPGRADED CARD =================
+                        // ================= CARD =================
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           decoration: BoxDecoration(
@@ -220,142 +232,162 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ],
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // IMAGE
-                              Stack(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(18),
-                                    ),
-                                    child: Image.network(
-                                      data["URL"] ?? "",
-                                      height: 200,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // IMAGE
+                                SizedBox(
+                                  height: 140,
+                                  width: double.infinity,
+                                  child: Stack(
+                                    children: [
+                                      Positioned.fill(
+                                        child: Image.network(
+                                          data["URL"] ?? "",
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                                return Container(
+                                                  color: Colors.grey.shade200,
+                                                  child: const Icon(
+                                                    Icons.image_not_supported,
+                                                    color: Colors.grey,
+                                                  ),
+                                                );
+                                              },
+                                        ),
+                                      ),
 
-                                  // gradient overlay
-                                  Positioned.fill(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius:
-                                            const BorderRadius.vertical(
-                                              top: Radius.circular(18),
+                                      // gradient overlay
+                                      Positioned.fill(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.bottomCenter,
+                                              end: Alignment.topCenter,
+                                              colors: [
+                                                Colors.black.withOpacity(0.25),
+                                                Colors.transparent,
+                                              ],
                                             ),
-                                        gradient: LinearGradient(
-                                          begin: Alignment.bottomCenter,
-                                          end: Alignment.topCenter,
-                                          colors: [
-                                            Colors.black.withOpacity(0.25),
-                                            Colors.transparent,
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-
-                                  // badge
-                                  Positioned(
-                                    top: 8,
-                                    right: 8,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.withOpacity(0.9),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: const Text(
-                                        "Eco",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              // CONTENT
-                              Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      data["name"],
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 14,
-                                        color: Color(0xFF1E8449),
-                                      ),
-                                    ),
-
-                                    const SizedBox(height: 6),
-
-                                    Text(
-                                      data["description"] ?? "",
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
-                                        height: 1.3,
-                                      ),
-                                    ),
-
-                                    const SizedBox(height: 10),
-
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          "${data["price"]} VNĐ",
-                                          style: const TextStyle(
-                                            color: Colors.green,
-                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
+                                      ),
 
-                                        Container(
+                                      // badge
+                                      Positioned(
+                                        top: 8,
+                                        right: 8,
+                                        child: Container(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 10,
                                             vertical: 4,
                                           ),
                                           decoration: BoxDecoration(
                                             color: Colors.green.withOpacity(
-                                              0.1,
+                                              0.9,
                                             ),
                                             borderRadius: BorderRadius.circular(
                                               20,
                                             ),
                                           ),
                                           child: const Text(
-                                            "Book",
+                                            "Eco",
                                             style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.green,
+                                              color: Colors.white,
+                                              fontSize: 10,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
                                         ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                // CONTENT
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(10),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          data["name"] ?? "",
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 14,
+                                            color: Color(0xFF1E8449),
+                                          ),
+                                        ),
+
+                                        const SizedBox(height: 5),
+
+                                        Text(
+                                          data["description"] ?? "",
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey.shade600,
+                                            height: 1.2,
+                                          ),
+                                        ),
+
+                                        const Spacer(),
+
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                "${data["price"]} VNĐ",
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  color: Colors.green,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ),
+
+                                            const SizedBox(width: 6),
+
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.green.withOpacity(
+                                                  0.1,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                              ),
+                                              child: const Text(
+                                                "Book",
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.green,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ],
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       );

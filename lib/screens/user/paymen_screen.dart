@@ -3,12 +3,49 @@ import 'package:booking_don_rac/services/payment_service.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-class PaymentScreen extends StatelessWidget {
+class PaymentScreen extends StatefulWidget {
   final String bookingId;
 
-  PaymentScreen({super.key, required this.bookingId});
+  const PaymentScreen({super.key, required this.bookingId});
 
+  @override
+  State<PaymentScreen> createState() => _PaymentScreenState();
+}
+
+class _PaymentScreenState extends State<PaymentScreen> {
   final PaymentService service = PaymentService();
+
+  bool _isCreatingPayment = false;
+  bool _createdPayment = false;
+
+  Future<void> _autoCreatePayment() async {
+    if (_isCreatingPayment || _createdPayment) return;
+
+    setState(() {
+      _isCreatingPayment = true;
+    });
+
+    try {
+      await service.createFromBooking(
+        bookingId: widget.bookingId,
+        method: "MOMO",
+      );
+
+      _createdPayment = true;
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Lỗi tạo thanh toán: $e")));
+    } finally {
+      if (!mounted) return;
+
+      setState(() {
+        _isCreatingPayment = false;
+      });
+    }
+  }
 
   Color getMethodColor(String method) {
     switch (method) {
@@ -47,7 +84,7 @@ class PaymentScreen extends StatelessWidget {
         foregroundColor: Colors.black87,
       ),
       body: StreamBuilder<List<PaymentModel>>(
-        stream: service.getByBooking(bookingId),
+        stream: service.getByBooking(widget.bookingId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -60,21 +97,18 @@ class PaymentScreen extends StatelessWidget {
           final payments = snapshot.data ?? [];
 
           if (payments.isEmpty) {
-            return Center(
-              child: ElevatedButton(
-                onPressed: () async {
-                  await service.createFromBooking(
-                    bookingId: bookingId,
-                    method: "MOMO",
-                  );
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _autoCreatePayment();
+            });
 
-                  if (!context.mounted) return;
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Đã tạo payment")),
-                  );
-                },
-                child: const Text("Tạo thanh toán"),
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 12),
+                  Text("Hệ thống đang tạo thanh toán cho khách..."),
+                ],
               ),
             );
           }
@@ -84,7 +118,7 @@ class PaymentScreen extends StatelessWidget {
 
           final qrData =
               payment.qrContent ??
-              "BOOKING:$bookingId|AMOUNT:${payment.amount}|PAYMENT:${payment.id}";
+              "BOOKING:${widget.bookingId}|AMOUNT:${payment.amount}|PAYMENT:${payment.id}";
 
           final isPaid = payment.status == "PAID";
 
@@ -226,7 +260,7 @@ class PaymentScreen extends StatelessWidget {
                       ),
                       icon: const Icon(Icons.check_circle_outline),
                       onPressed: () async {
-                        await service.pay(payment.id, bookingId);
+                        await service.pay(payment.id, widget.bookingId);
 
                         if (!context.mounted) return;
 
@@ -246,11 +280,11 @@ class PaymentScreen extends StatelessWidget {
                     ),
                   )
                 else
-                  Column(
+                  const Column(
                     children: [
                       Icon(Icons.verified, color: Colors.green, size: 76),
-                      const SizedBox(height: 8),
-                      const Text(
+                      SizedBox(height: 8),
+                      Text(
                         "Cảm ơn bạn đã thanh toán",
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),

@@ -20,7 +20,6 @@ class _TaskScreenState extends State<TaskScreen> {
   static const Color _primary = Color(0xFF006D37);
   static const Color _primarySoft = Color(0xFF2ECC71);
   static const Color _surface = Colors.white;
-  static const Color _surfaceContainer = Color(0xFFE3F0F1);
   static const Color _outline = Color(0xFF6C7B6D);
   static const Color _textDark = Color(0xFF121E1F);
   static const Color _textVariant = Color(0xFF3D4A3E);
@@ -69,37 +68,116 @@ class _TaskScreenState extends State<TaskScreen> {
     }
   }
 
+  List<TaskModel> _filterTasksByStatus(
+    List<TaskModel> tasks,
+    List<String> statuses,
+  ) {
+    return tasks.where((task) {
+      return statuses.contains(task.status.toUpperCase());
+    }).toList();
+  }
+
+  Widget _buildTaskGrid(List<TaskModel> tasks) {
+    if (tasks.isEmpty) {
+      return const Center(child: Text('Không có task nào'));
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final crossAxisCount = width >= 1000
+            ? 3
+            : width >= 650
+            ? 2
+            : 1;
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: _TaskSummaryCard(total: tasks.length),
+            ),
+
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+                itemCount: tasks.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  mainAxisExtent: 310,
+                ),
+                itemBuilder: (context, index) {
+                  final task = tasks[index];
+
+                  return _TaskLoaderCard(
+                    task: task,
+                    service: service,
+                    matchSearch: _matchSearch,
+                    onOpen: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TaskDetail(task: task),
+                        ),
+                      );
+                    },
+                    onUpdateStatus: (status) {
+                      _updateTaskStatus(task, status);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<EmployeeProvider>();
 
-    return Scaffold(
-      backgroundColor: _bg,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: _surface,
-        foregroundColor: _primary,
-        titleSpacing: 20,
-        title: const Row(
-          children: [
-            Icon(Icons.eco, color: _primary),
-            SizedBox(width: 8),
-            Text(
-              'EcoStaff',
-              style: TextStyle(
-                color: _primary,
-                fontWeight: FontWeight.bold,
-                fontSize: 22,
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        backgroundColor: _bg,
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: _surface,
+          foregroundColor: _primary,
+          titleSpacing: 20,
+          title: const Row(
+            children: [
+              Icon(Icons.eco, color: _primary),
+              SizedBox(width: 8),
+              Text(
+                'EcoStaff',
+                style: TextStyle(
+                  color: _primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          bottom: const TabBar(
+            labelColor: _primary,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: _primary,
+            tabs: [
+              Tab(text: 'Đã giao'),
+              Tab(text: 'Đang làm'),
+              Tab(text: 'Hoàn thành'),
+            ],
+          ),
         ),
-      ),
-      body: CustomScrollView(
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-            sliver: SliverToBoxAdapter(
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
               child: _SearchBox(
                 controller: _searchController,
                 searchText: searchText,
@@ -112,81 +190,50 @@ class _TaskScreenState extends State<TaskScreen> {
                 },
               ),
             ),
-          ),
-          StreamBuilder<QuerySnapshot>(
-            stream: provider.tasks,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SliverFillRemaining(
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: provider.tasks,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const SliverFillRemaining(
-                  child: Center(child: Text('Không có task nào')),
-                );
-              }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Center(child: Text('Không có task nào'));
+                  }
 
-              final tasks = snapshot.data!.docs.map((doc) {
-                return TaskModel.fromDoc(
-                  doc.id,
-                  doc.data() as Map<String, dynamic>,
-                );
-              }).toList();
-
-              return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-                sliver: SliverLayoutBuilder(
-                  builder: (context, constraints) {
-                    final width = constraints.crossAxisExtent;
-                    final crossAxisCount = width >= 1000
-                        ? 3
-                        : width >= 650
-                        ? 2
-                        : 1;
-
-                    return SliverGrid(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        mainAxisExtent: 310,
-                      ),
-                      delegate: SliverChildBuilderDelegate(
-                        childCount: tasks.length + 1,
-                        (context, index) {
-                          if (index == 0) {
-                            return _TaskSummaryCard(total: tasks.length);
-                          }
-
-                          final task = tasks[index - 1];
-
-                          return _TaskLoaderCard(
-                            task: task,
-                            service: service,
-                            matchSearch: _matchSearch,
-                            onOpen: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => TaskDetail(task: task),
-                                ),
-                              );
-                            },
-                            onUpdateStatus: (status) {
-                              _updateTaskStatus(task, status);
-                            },
-                          );
-                        },
-                      ),
+                  final tasks = snapshot.data!.docs.map((doc) {
+                    return TaskModel.fromDoc(
+                      doc.id,
+                      doc.data() as Map<String, dynamic>,
                     );
-                  },
-                ),
-              );
-            },
-          ),
-        ],
+                  }).toList();
+
+                  final assignedTasks = _filterTasksByStatus(tasks, [
+                    'ASSIGNED',
+                  ]);
+
+                  final inProgressTasks = _filterTasksByStatus(tasks, [
+                    'IN_PROGRESS',
+                  ]);
+
+                  final completedTasks = _filterTasksByStatus(tasks, [
+                    'COMPLETED',
+                    'DONE',
+                  ]);
+
+                  return TabBarView(
+                    children: [
+                      _buildTaskGrid(assignedTasks),
+                      _buildTaskGrid(inProgressTasks),
+                      _buildTaskGrid(completedTasks),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -254,47 +301,57 @@ class _TaskSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(22),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: _TaskScreenState._primarySoft.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(22),
+        color: _TaskScreenState._primarySoft.withOpacity(0.16),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: _TaskScreenState._primarySoft.withOpacity(0.25),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          const Text(
-            'Active Tasks',
-            style: TextStyle(
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: _TaskScreenState._primary.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Icons.task_alt,
               color: _TaskScreenState._primary,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+              size: 23,
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            '$total Total',
-            style: const TextStyle(
-              color: _TaskScreenState._primary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+
+          const SizedBox(width: 12),
+
+          const Expanded(
+            child: Text(
+              'Active Tasks',
+              style: TextStyle(
+                color: _TaskScreenState._primary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-          const Spacer(),
-          const Text(
-            'Eco-Efficiency Tip',
-            style: TextStyle(
-              color: Color(0xFF005027),
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
+
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(999),
             ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Tối ưu tuyến đường hôm nay giúp giảm thời gian di chuyển và cải thiện hiệu suất thu gom.',
-            style: TextStyle(
-              color: _TaskScreenState._textVariant,
-              fontSize: 15,
-              height: 1.4,
+            child: Text(
+              '$total Total',
+              style: const TextStyle(
+                color: _TaskScreenState._primary,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],

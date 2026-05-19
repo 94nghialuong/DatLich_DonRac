@@ -41,7 +41,10 @@ class EmployeeProvider extends ChangeNotifier {
     return db
         .collection('tasks')
         .where('employeeId', isEqualTo: userId)
-        .where('status', whereIn: ["ASSIGNED", "IN_PROGRESS"])
+        .where(
+          'status',
+          whereIn: ["ASSIGNED", "IN_PROGRESS", "COMPLETED", "DONE"],
+        )
         .snapshots();
   }
 

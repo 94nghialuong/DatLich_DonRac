@@ -10,7 +10,8 @@ class BookingService {
   Future<void> createBooking(Map<String, dynamic> data) async {
     final docRef = await db.collection('bookings').add({
       ...data,
-      'address': data['address'] ??
+      'address':
+          data['address'] ??
           data['pickupAddress'] ??
           data['userAddress'] ??
           'Không có địa chỉ',
@@ -20,10 +21,14 @@ class BookingService {
       'updatedAt': Timestamp.now(),
     });
 
-    await notificationService.notifyAllStaffNewBooking(
-      bookingId: docRef.id,
-      content: 'Khách hàng vừa tạo một booking mới',
-    );
+    try {
+      await notificationService.notifyAllStaffNewBooking(
+        bookingId: docRef.id,
+        content: 'Có booking mới đang chờ nhân viên nhận đơn',
+      );
+    } catch (e) {
+      print('Lỗi gửi thông báo booking mới cho nhân viên: $e');
+    }
   }
 
   Future<void> acceptBooking(String bookingId, String employeeId) async {

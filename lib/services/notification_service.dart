@@ -276,7 +276,7 @@ class NotificationService {
     String content = 'Task $taskId đã được cập nhật';
     String type = 'task_status';
 
-    if (upperStatus == 'ASSIGNED') {
+    if (upperStatus == 'PENDING') {
       title = 'Task mới được giao';
       content = 'Bạn có task mới từ booking $bookingId';
       type = 'task_assigned';

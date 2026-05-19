@@ -13,10 +13,10 @@ class PaymentService {
         .where('bookingId', isEqualTo: bookingId)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return PaymentModel.fromDoc(doc.id, doc.data());
-      }).toList();
-    });
+          return snapshot.docs.map((doc) {
+            return PaymentModel.fromDoc(doc.id, doc.data());
+          }).toList();
+        });
   }
 
   Future<void> createFromBooking({
